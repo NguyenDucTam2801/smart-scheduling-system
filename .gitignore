@@ -1,0 +1,60 @@
+# ─── DEPENDENCIES ─────────────────────────────────────────────────────
+# Chặn node_modules ở mọi cấp độ (Root, Apps, Packages)
+node_modules
+/node_modules
+apps/*/node_modules
+packages/*/node_modules
+.pnpm-store
+
+# ─── NEXT.JS (FRONTEND) BUILD OUTPUTS ─────────────────────────────────
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+
+# ─── NESTJS (BACKEND) BUILD OUTPUTS ───────────────────────────────────
+apps/backend/dist/
+apps/backend/thunder-tests/
+apps/backend/.tscache/
+
+# ─── TURBOREPO CACHE ──────────────────────────────────────────────────
+.turbo
+apps/*/.turbo
+packages/*/.turbo
+
+# ─── SECURITY & ENVIRONMENT VARIABLES (QUAN TRỌNG) ────────────────────
+# Tuyệt đối không push file chứa mật khẩu DB/JWT lên GitHub
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+apps/backend/.env
+apps/web/.env
+
+# ─── OPERATING SYSTEM FILES ───────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ─── LOGS AND DIAGNOSTICS ─────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+*.log
+
+# ─── IDE & EDITORS ────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
