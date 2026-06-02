@@ -1,19 +1,16 @@
 {
-  "extends": "@repo/typescript-config/nextjs.json",
+  "extends": "../../packages/typescript-config/base.json", // Extends your centralized rules
   "compilerOptions": {
     "plugins": [
       {
         "name": "next"
       }
     ],
-    "strictNullChecks": true
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "jsx": "preserve"
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "next-env.d.ts",
-    "next.config.js",
-    ".next/types/**/*.ts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

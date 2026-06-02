@@ -13,6 +13,7 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
@@ -21,5 +22,8 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "extends": "../../packages/typescript-config/base.json",
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "generated"]
 }
