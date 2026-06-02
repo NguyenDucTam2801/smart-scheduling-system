@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleEnum {
+  ADMIN
+  USER
+
+  @@map("role_enum")
+}
+
+enum CrStatusEnum {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("cr_status_enum")
+}
+
+enum NotifEnum {
+  SCHEDULE_APPROVED
+  SCHEDULE_REJECTED
+  SCHEDULE_MODIFIED
+  SCHEDULE_REQUEST_RESULT
+
+  @@map("notif_enum")
+}
+
+enum StatusEnum {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  CONFLICT
+
+  @@map("status_enum")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         RoleEnum @default(USER) @map("role")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  schedules               Schedule[]
+  submittedChangeRequests ChangeRequest[] @relation("UserRequests")
+  reviewedChangeRequests  ChangeRequest[] @relation("AdminReviews")
+  notifications           Notification[]
+
+  @@map("users")
+}
+
+model Room {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique @db.VarChar(255)
+  capacity  Int      @map("capacity") @db.Integer
+  location  String?  @db.VarChar(255)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  schedules Schedule[]
+
+  @@index([id, isActive], name: "idx_room_active")
+  @@map("rooms")
+}
+
+model Schedule {
+  id        String     @id @default(uuid()) @db.Uuid
+  title     String     @db.VarChar(255)
+  userId    String     @map("user_id") @db.Uuid
+  roomId    String     @map("room_id") @db.Uuid
+  startTime DateTime   @map("start_time") @db.Timestamp
+  endTime   DateTime   @map("end_time") @db.Timestamp
+  status    StatusEnum @default(PENDING) @map("status")
+  version   Int        @default(0) @map("version")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamp
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room           Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  changeRequests ChangeRequest[]
+
+  @@index([startTime, endTime, roomId], name: "idx_schedules_time_room")
+  @@index([startTime, endTime, userId], name: "idx_schedules_time_user")
+  @@map("schedules")
+}
+
+model ChangeRequest {
+  id          String       @id @default(uuid()) @db.Uuid
+  scheduleId  String       @map("schedule_id") @db.Uuid
+  requesterId String       @map("requester_id") @db.Uuid
+  newStart    DateTime?    @map("new_start") @db.Timestamp
+  newEnd      DateTime?    @map("new_end") @db.Timestamp
+  reason      String?      @db.Text
+  status      CrStatusEnum @default(PENDING) @map("status")
+  reviewedBy  String?      @map("reviewed_by") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp
+
+  schedule  Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  requester User     @relation("UserRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer  User?    @relation("AdminReviews", fields: [reviewedBy], references: [id])
+
+  @@map("change_requests")
+}
+
+model Notification {
+  id      String    @id @default(uuid()) @db.Uuid
+  userId  String    @map("user_id") @db.Uuid
+  title   String    @map("title") @db.Text
+  message String    @map("message") @db.Text
+  type    NotifEnum @map("type")
+  isRead  Boolean   @default(false) @map("is_read")
+  sentAt  DateTime  @default(now()) @map("sent_at") @db.Timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead], name: "idx_notification_user_unread")
+  @@map("notifications")
+}
