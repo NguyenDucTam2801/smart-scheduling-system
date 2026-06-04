@@ -7,7 +7,9 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "studio": "npm run studio --workspace=backend"
+    "be:studio": "npm run studio --workspace=backend",
+    "be:dev": "npm run start:dev --workspace=backend",
+    "fe": "npm run dev --workspace=frontend"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

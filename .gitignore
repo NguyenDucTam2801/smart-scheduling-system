@@ -15,6 +15,7 @@ apps/web/build/
 apps/backend/dist/
 apps/backend/thunder-tests/
 apps/backend/.tscache/
+apps/backend/prisma/migrations
 
 # ─── TURBOREPO CACHE ──────────────────────────────────────────────────
 .turbo
@@ -29,6 +30,7 @@ packages/*/.turbo
 .env.test.local
 .env.production.local
 *.env
+.continue
 apps/backend/.env
 apps/web/.env
 

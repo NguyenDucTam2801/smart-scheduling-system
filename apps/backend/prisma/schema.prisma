@@ -5,7 +5,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -53,6 +53,7 @@ model User {
   passwordHash String   @map("password_hash") @db.VarChar(255)
   role         RoleEnum @default(USER) @map("role")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
+  refreshTokenHash String? @map("refresh_token_hash") @db.Text
 
   schedules               Schedule[]
   submittedChangeRequests ChangeRequest[] @relation("UserRequests")
