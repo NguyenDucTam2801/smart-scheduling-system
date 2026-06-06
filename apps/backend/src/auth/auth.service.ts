@@ -88,7 +88,13 @@ export class AuthService {
             where: { id: userId },
             data: { refreshTokenHash: refreshToken ? await bcrypt.hash(refreshToken, 12) : null }
         })
+    }
 
-
+    async promoteToAdmin(userId: string, secretKey: string) {
+        if (secretKey !== process.env.ADMIN_SECRET_KEY) throw new UnauthorizedException('Invalid secret key');
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { role: RoleEnum.ADMIN }
+        })
     }
 }

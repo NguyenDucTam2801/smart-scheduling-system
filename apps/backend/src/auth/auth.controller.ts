@@ -1,8 +1,10 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get, Patch, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { JwtPayload, LoginDto, RegisterDto } from './dto/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -24,4 +26,18 @@ export class AuthController {
     return this.authService.refreshTokens(user.sub, user.refreshToken);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('user')
+  getUser(@CurrentUser() user: JwtPayload) {
+    return user
+  }
+
+  @Patch('promote-admin')
+  @HttpCode(HttpStatus.OK)
+  async promoteToAdmin(
+    @Body() body: { userId: string, secretKey: string }
+  ) {
+    const { userId, secretKey } = body
+    this.authService.promoteToAdmin(userId, secretKey);
+  }
 }

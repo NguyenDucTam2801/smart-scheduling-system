@@ -1,4 +1,5 @@
 import { IsEmail, IsString, MinLength } from 'class-validator';
+import { RoleEnum } from '@prisma/client';
 
 export class RegisterDto {
     @IsEmail()
@@ -20,4 +21,15 @@ export class LoginDto {
     @IsString()
     @MinLength(6)
     password!: string;
+}
+
+export class JwtPayload {
+    @IsString()
+    sub!: string
+
+    @IsEmail()
+    email!: string
+
+    @IsString()
+    role!: RoleEnum
 }
