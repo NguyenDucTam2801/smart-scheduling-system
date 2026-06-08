@@ -1,5 +1,5 @@
 import { StatusEnum } from "@prisma/client"
-import { IsDateString, IsEnum, IsOptional, IsUUID } from "class-validator"
+import { IsDateString, IsEnum, IsOptional, IsUUID, IsString, IsInt } from "class-validator"
 
 export type CalendarView = 'day' | 'week' | 'month'
 
@@ -22,4 +22,13 @@ export class QueryScheduleDto {
     @IsOptional()
     @IsEnum(StatusEnum)
     status?: StatusEnum
+
+    @IsOptional()
+    @IsString()
+    title?: string
+
+    @IsOptional()
+    @IsInt()
+    version?: number
+
 }

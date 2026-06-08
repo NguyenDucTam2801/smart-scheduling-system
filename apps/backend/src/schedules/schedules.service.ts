@@ -1,6 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
-import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { SchedulesRepository } from './schedules.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -8,6 +7,7 @@ import { ForbiddenException } from '@nestjs/common';
 
 import { buildPrismaTimeFilter } from 'src/common/utils/date-filter.util';
 import { NotifEnum, StatusEnum } from '@prisma/client';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 @Injectable()
 export class SchedulesService {
@@ -52,7 +52,7 @@ export class SchedulesService {
   }
 
   async findAll(query: QueryScheduleDto, requestUserId: string, isAdmin: boolean) {
-    const { view, date, roomId, userId, status } = query
+    const { view, date, roomId, userId, status, title, version } = query
 
     let timeFilter: {
       startTime?: { gte: Date };
@@ -82,6 +82,8 @@ export class SchedulesService {
         ...userFilter,
         ...(roomId && { roomId }),
         ...(status && { status }),
+        ...(title && { title }),
+        ...(version && { version })
       },
       include: {
         user: {
@@ -117,9 +119,7 @@ export class SchedulesService {
     }
 
     const affected = await this.schedulesRepo.updateStatusWithLock(
-      id,
-      updateScheduleDto.status,
-      updateScheduleDto.version
+      id, updateScheduleDto
     )
 
     if (affected == 0) {

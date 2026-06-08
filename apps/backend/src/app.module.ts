@@ -6,13 +6,15 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config'; // <-- Thêm dòng này
 import { SchedulesModule } from './schedules/schedules.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     PrismaModule,
-    SchedulesModule],
+    SchedulesModule,
+    RoomsModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

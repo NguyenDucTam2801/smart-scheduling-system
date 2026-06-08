@@ -39,6 +39,7 @@ enum NotifEnum {
 enum StatusEnum {
   PENDING
   APPROVED
+  FINISHED
   REJECTED
   CANCELLED
   CONFLICT
@@ -66,7 +67,7 @@ model User {
 model Room {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique @db.VarChar(255)
-  capacity  Int      @map("capacity") @db.Integer
+  capacity  Int      @map("capacity") @db.Integer @default(1)
   location  String?  @db.VarChar(255)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

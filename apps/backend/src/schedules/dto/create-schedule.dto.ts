@@ -1,24 +1,24 @@
 import { IsDateString, IsNotEmpty, IsString, MinLength } from "class-validator"
 
 export class CreateScheduleDto {
-    @IsString()
     @IsNotEmpty()
+    @IsString()
     @MinLength(2)
     title!: string
 
-    @IsString()
     @IsNotEmpty()
+    @IsString()
     userId!: string
 
-    @IsString()
     @IsNotEmpty()
+    @IsString()
     roomId!: string
 
-    @IsDateString()
     @IsNotEmpty()
+    @IsDateString()
     startTime!: string
 
-    @IsDateString()
     @IsNotEmpty()
+    @IsDateString()
     endTime!: string
 }

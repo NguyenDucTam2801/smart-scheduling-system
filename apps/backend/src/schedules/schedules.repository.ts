@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, StatusEnum } from "@prisma/client";
 import { PrismaService } from "src/prisma/prisma.service";
+import { UpdateScheduleDto } from "./dto/update-schedule.dto";
 
 
 @Injectable()
@@ -29,17 +30,18 @@ export class SchedulesRepository {
 
     async updateStatusWithLock(
         id: string,
-        status: StatusEnum,
-        version: number,
+
+        updateScheduleDto: UpdateScheduleDto
     ): Promise<number> {
         // Returns number of affected rows — 0 means stale version
         const result = await this.prisma.$executeRaw`
       UPDATE schedules
-      SET    status     = ${status}::"status_enum",
-             version    = version + 1,
+      SET    status     = ${updateScheduleDto.status}::"status_enum",
+             version    = ${updateScheduleDto.version} + 1,
+             title      = ${updateScheduleDto.title},
              updated_at = now()
       WHERE  id      = ${id}::uuid
-        AND  version = ${version}
+        AND  version = ${updateScheduleDto.version}
     `;
         return result;
     }

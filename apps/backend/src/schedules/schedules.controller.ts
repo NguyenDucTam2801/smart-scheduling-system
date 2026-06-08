@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import { SchedulesService } from './schedules.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
-import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { QueryScheduleDto } from './dto/query-schedule.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -23,6 +22,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RoleEnum } from '@prisma/client';
 import { JwtPayload } from 'src/auth/dto/auth.dto';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)  // apply to all routes
 @Controller('schedules')
@@ -81,7 +81,7 @@ export class SchedulesController {
   }
 
   //DELETE /schedule/:id - ADMIN only (hard cancel)
-  @Delete('hard/:id')
+  @Delete(':id/permanent')
   @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.OK)
   hardCancel(@Param('id', ParseUUIDPipe) id: string) {

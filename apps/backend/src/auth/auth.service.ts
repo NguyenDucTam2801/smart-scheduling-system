@@ -67,16 +67,17 @@ export class AuthService {
         const jwtPayload = { sub: userId, email, role }
 
         const accessToken = await this.jwtService.signAsync(jwtPayload, {
-            secret: process.env.JWT_ACCESS_SECRET,
-            expiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '3600')
-        }); // Ensure this runs in the next tick to avoid blocking
+            secret: process.env.JWT_ACCESS_SECRET as string,
+            // Just pass the string directly, and use '1h' (not '3600') as the fallback
+            expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '1h') as any
+        } as any);// Ensure this runs in the next tick to avoid blocking
 
 
         const refreshToken = oldRefreshToken
             ? oldRefreshToken
             : await this.jwtService.signAsync(jwtPayload, {
-                secret: process.env.JWT_REFRESH_SECRET,
-                expiresIn: parseInt(process.env.JWT_REFRESH_EXPIRES_IN || '86400')
+                secret: process.env.JWT_REFRESH_SECRET as string,
+                expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '1w') as any
             });
 
         return { accessToken, refreshToken }
