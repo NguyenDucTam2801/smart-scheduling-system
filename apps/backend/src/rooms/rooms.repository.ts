@@ -63,6 +63,7 @@ export class RoomRepository {
 
     async create(dto: CreateRoomDto) {
         const { name, capacity, location } = dto
+        // add notification table to all users about new room
         return this.prisma.room.create({
             data: {
                 name,
@@ -92,6 +93,8 @@ export class RoomRepository {
     }
 
     async hardDelete(id: string) {
+        // add notification table to all users about deleted room
+
         return this.prisma.room.delete({
             where: { id }
         })

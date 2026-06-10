@@ -8,10 +8,6 @@ export class CreateScheduleDto {
 
     @IsNotEmpty()
     @IsString()
-    userId!: string
-
-    @IsNotEmpty()
-    @IsString()
     roomId!: string
 
     @IsNotEmpty()

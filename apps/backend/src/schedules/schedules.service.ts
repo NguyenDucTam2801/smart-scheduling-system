@@ -13,7 +13,7 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 export class SchedulesService {
   constructor(private readonly schedulesRepo: SchedulesRepository, private readonly prisma: PrismaService) { }
 
-  async create(createScheduleDto: CreateScheduleDto) {
+  async create(createScheduleDto: CreateScheduleDto, adminId: string) {
     const startTime = new Date(createScheduleDto.startTime)
     const endTime = new Date(createScheduleDto.endTime)
 
@@ -36,12 +36,15 @@ export class SchedulesService {
       }
 
       await tx.schedule.create({
-        data: createScheduleDto,
+        data: {
+          ...createScheduleDto,
+          userId: adminId
+        },
       })
 
       await tx.notification.create({
         data: {
-          userId: createScheduleDto.userId,
+          userId: adminId,
           title: 'New schedule created',
           message: `Your booking "${createScheduleDto.title}" has been submitted and is pending approval.`,
           type: NotifEnum.SCHEDULE_APPROVED,

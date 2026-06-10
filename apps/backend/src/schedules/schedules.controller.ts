@@ -58,8 +58,8 @@ export class SchedulesController {
   @Post()
   @Roles(RoleEnum.ADMIN)
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() createScheduleDto: CreateScheduleDto) {
-    return this.schedulesService.create(createScheduleDto);
+  create(@Body() createScheduleDto: CreateScheduleDto, @CurrentUser() user: JwtPayload) {
+    return this.schedulesService.create(createScheduleDto, user.sub);
   }
 
   // PATCH /schedules/:id/status — ADMIN only (optimistic locking)

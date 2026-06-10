@@ -9,6 +9,6 @@ import { AuthModule } from 'src/auth/auth.module';
   imports: [PrismaModule, AuthModule],
   controllers: [SchedulesController],
   providers: [SchedulesService, SchedulesRepository],
-  exports: [SchedulesService],
+  exports: [SchedulesService, SchedulesRepository],
 })
 export class SchedulesModule { }

@@ -7,6 +7,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config'; // <-- Thêm dòng này
 import { SchedulesModule } from './schedules/schedules.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { ChangeRequestsModule } from './change-requests/change-requests.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { RoomsModule } from './rooms/rooms.module';
     AuthModule,
     PrismaModule,
     SchedulesModule,
-    RoomsModule],
+    RoomsModule,
+    ChangeRequestsModule],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
