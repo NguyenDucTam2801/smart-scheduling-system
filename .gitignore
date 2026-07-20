@@ -1,38 +1,43 @@
 # ─── DEPENDENCIES ─────────────────────────────────────────────────────
 # Chặn node_modules ở mọi cấp độ (Root, Apps, Packages)
 node_modules
-/node_modules
-apps/*/node_modules
-packages/*/node_modules
 .pnpm-store
 
-# ─── NEXT.JS (FRONTEND) BUILD OUTPUTS ─────────────────────────────────
-apps/web/.next/
-apps/web/out/
-apps/web/build/
+# ─── BUILD OUTPUTS (FRONTEND & BACKEND) ──────────────────────────────
+# Dùng wildcard (*) để tự động ăn theo cả apps/frontend, apps/backend, v.v.
+.next/
+out/
+dist/
+build/
+apps/*/.next/
+apps/*/out/
+apps/*/dist/
+apps/*/build/
+packages/*/dist/
+packages/*/build/
 
-# ─── NESTJS (BACKEND) BUILD OUTPUTS ───────────────────────────────────
-apps/backend/dist/
+# ─── TESTING & CACHE ──────────────────────────────────────────────────
 apps/backend/thunder-tests/
 apps/backend/.tscache/
-apps/backend/prisma/migrations
-
-# ─── TURBOREPO CACHE ──────────────────────────────────────────────────
 .turbo
 apps/*/.turbo
 packages/*/.turbo
+.coverage
+*.lcov
 
 # ─── SECURITY & ENVIRONMENT VARIABLES (QUAN TRỌNG) ────────────────────
-# Tuyệt đối không push file chứa mật khẩu DB/JWT lên GitHub
+# Bắt tất cả các file .env, .env.local, .env.test, .env.production ở MỌI cấp thư mục
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 *.env
-.continue
-apps/backend/.env
-apps/web/.env
+*.env.*
+apps/*/.env*
+packages/*/.env*
+
+# NGOẠI TRỪ file mẫu (để người khác clone về biết đường điền key)
+!.env.example
+!apps/*/.env.example
+!packages/*/.env.example
 
 # ─── OPERATING SYSTEM FILES ───────────────────────────────────────────
 .DS_Store
@@ -51,6 +56,7 @@ lerna-debug.log*
 *.log
 
 # ─── IDE & EDITORS ────────────────────────────────────────────────────
+.continue
 .idea/
 .vscode/*
 !.vscode/extensions.json
