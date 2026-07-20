@@ -15,6 +15,7 @@ datasource db {
 enum RoleEnum {
   ADMIN
   USER
+  SUPERADMIN
 
   @@map("role_enum")
 }
@@ -28,38 +29,46 @@ enum CrStatusEnum {
 }
 
 enum NotifEnum {
-  SCHEDULE_APPROVED
-  SCHEDULE_REJECTED
-  SCHEDULE_MODIFIED
-  SCHEDULE_REQUEST_RESULT
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  REQUEST_SUBMITTED
+
+
+  SCHEDULE_CREATED
+  SCHEDULE_DELETED
+  SCHEDULE_UPDATTED
+  
+  ROOM_CREATED
+  ROOM_UPDATED
+  ROOM_DELETED
+
   SYSTEM_ANNOUNCEMENT
+
 
   @@map("notif_enum")
 }
 
 enum StatusEnum {
-  PENDING
   APPROVED
   FINISHED
   REJECTED
   CANCELLED
-  CONFLICT
 
   @@map("status_enum")
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique @db.VarChar(255)
-  name         String   @db.VarChar(255)
-  passwordHash String   @map("password_hash") @db.VarChar(255)
-  role         RoleEnum @default(USER) @map("role")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
-  refreshTokenHash String? @map("refresh_token_hash") @db.Text
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique @db.VarChar(255)
+  name             String   @db.VarChar(255)
+  passwordHash     String   @map("password_hash") @db.VarChar(255)
+  role             RoleEnum @default(USER) @map("role")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp
+  refreshTokenHash String?  @unique @map("refresh_token_hash") @db.Text
 
   schedules               Schedule[]
   submittedChangeRequests ChangeRequest[] @relation("UserRequests")
-  reviewedChangeRequests  ChangeRequest[] @relation("AdminReviews")
+  reviewedChangeRequests  ChangeRequest[]   @relation("AdminReviews")
   notifications           Notification[]
 
   @@map("users")
@@ -68,7 +77,7 @@ model User {
 model Room {
   id        String   @id @default(uuid()) @db.Uuid
   name      String   @unique @db.VarChar(255)
-  capacity  Int      @map("capacity") @db.Integer @default(1)
+  capacity  Int      @default(1) @map("capacity") @db.Integer
   location  String?  @db.VarChar(255)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -86,7 +95,7 @@ model Schedule {
   roomId    String     @map("room_id") @db.Uuid
   startTime DateTime   @map("start_time") @db.Timestamp
   endTime   DateTime   @map("end_time") @db.Timestamp
-  status    StatusEnum @default(PENDING) @map("status")
+  status    StatusEnum @default(APPROVED) @map("status")
   version   Int        @default(0) @map("version")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamp
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamp
@@ -109,7 +118,9 @@ model ChangeRequest {
   reason      String?      @db.Text
   status      CrStatusEnum @default(PENDING) @map("status")
   reviewedBy  String?      @map("reviewed_by") @db.Uuid
+  version     Int          @default(0) @map("version")
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamp
 
   schedule  Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   requester User     @relation("UserRequests", fields: [requesterId], references: [id], onDelete: Cascade)
@@ -120,14 +131,14 @@ model ChangeRequest {
 
 model Notification {
   id      String    @id @default(uuid()) @db.Uuid
-  userId  String    @map("user_id") @db.Uuid
+  userId  String?   @map("user_id") @db.Uuid
   title   String    @map("title") @db.Text
   message String    @map("message") @db.Text
   type    NotifEnum @map("type")
   isRead  Boolean   @default(false) @map("is_read")
   sentAt  DateTime  @default(now()) @map("sent_at") @db.Timestamp
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead], name: "idx_notification_user_unread")
   @@map("notifications")

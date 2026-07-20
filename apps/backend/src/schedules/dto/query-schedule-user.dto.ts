@@ -3,7 +3,7 @@ import { IsDateString, IsEnum, IsOptional, IsUUID, IsString, IsInt } from "class
 
 export type CalendarView = 'day' | 'week' | 'month'
 
-export class QueryScheduleDto {
+export class QueryScheduleUserDto {
     @IsOptional()
     view?: CalendarView
 
@@ -14,10 +14,6 @@ export class QueryScheduleDto {
     @IsOptional()
     @IsUUID()
     roomId?: string
-
-    @IsOptional()
-    @IsUUID()
-    userId?: string
 
     @IsOptional()
     @IsEnum(StatusEnum)

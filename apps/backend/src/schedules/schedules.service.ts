@@ -1,156 +1,262 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
-import { QueryScheduleDto } from './dto/query-schedule.dto';
+import { QueryScheduleUserDto } from './dto/query-schedule-user.dto';
 import { SchedulesRepository } from './schedules.repository';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ForbiddenException } from '@nestjs/common';
-
-import { buildPrismaTimeFilter } from 'src/common/utils/date-filter.util';
 import { NotifEnum, StatusEnum } from '@prisma/client';
-import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { TransactionManager } from 'src/transaction-manager/transaction-manager.service';
+import { buildPrismaTimeFilter, validateTimeRange } from 'src/common/utils/date-filter.util';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { QueryScheduleAdminDto } from './dto/query-schedule-admin.dto';
+import { UpdateScheduleAdminDto } from './dto/update-schedule-admin.dto';
+import { UpdateScheduleUserDto } from './dto/update-schedule-user.dto';
+import { CreateBroadcastDto } from 'src/notifications/dto/create-broadcast.dto';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly schedulesRepo: SchedulesRepository, private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly schedulesRepo: SchedulesRepository,
+    private readonly notifRepo: NotificationsRepository,
+    private readonly gateway: NotificationsGateway,
+    private readonly txManager: TransactionManager
+  ) { }
 
-  async create(createScheduleDto: CreateScheduleDto, adminId: string) {
-    const startTime = new Date(createScheduleDto.startTime)
-    const endTime = new Date(createScheduleDto.endTime)
+  async create(createScheduleDto: CreateScheduleDto, userId: string) {
 
-    if (startTime >= endTime) {
-      throw new ConflictException("startTime must be before endTime")
+    const isValidPeriod = validateTimeRange(createScheduleDto.startTime, createScheduleDto.endTime)
+    if (!isValidPeriod) {
+      throw new BadRequestException("Invalid time range. Please ensure that the time range is valid (end time later than start time and time range is in the future).")
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const startTime = new Date(createScheduleDto.startTime)
+    const endTime = new Date(createScheduleDto.endTime)
+    // return this.schedulesRepo.create(createScheduleDto, userId)
+
+    const result = await this.txManager.runInTransaction(async (tx) => {
       const conflict = await this.schedulesRepo.findOverlappingSchedules(
-        tx,
         createScheduleDto.roomId,
         startTime,
-        endTime
-      )
+        endTime,
+        undefined,
+        tx
+      );
 
       if (conflict) {
         throw new ConflictException(
           `Room is already booked from ${conflict.startTime.toISOString()} to ${conflict.endTime.toISOString()}`,
-        )
+        );
       }
 
-      await tx.schedule.create({
-        data: {
-          ...createScheduleDto,
-          userId: adminId
-        },
-      })
+      const schedule = await this.schedulesRepo.create(
+        createScheduleDto,
+        userId,
+        tx,
+      );
 
-      await tx.notification.create({
-        data: {
-          userId: adminId,
-          title: 'New schedule created',
-          message: `Your booking "${createScheduleDto.title}" has been submitted and is pending approval.`,
-          type: NotifEnum.SCHEDULE_APPROVED,
-        }
-      })
+      const payload: CreateBroadcastDto = {
+        userIds: [userId],
+        title: 'New schedule created',
+        message: `Your booking "${createScheduleDto.title}" has been submitted.`,
+        type: NotifEnum.SCHEDULE_CREATED,
+      }
 
+      await this.notifRepo.createForUsers(payload, tx);
+      return { payload, schedule }
     })
+    this.gateway.notifyUser(userId, result.payload)
+    return result.schedule
   }
 
-  async findAll(query: QueryScheduleDto, requestUserId: string, isAdmin: boolean) {
-    const { view, date, roomId, userId, status, title, version } = query
+  async findAllForUser(query: QueryScheduleUserDto, requestUserId: string) {
+    const { view, date, ...rest } = query
 
     let timeFilter: {
       startTime?: { gte: Date };
       endTime?: { lte: Date };
     } = buildPrismaTimeFilter(date, view)
 
-    let userFilter: { userId: string };
-
-    if (!isAdmin) {
-      if (userId && userId != requestUserId) {
-        throw new ForbiddenException('You are not authorized to view other users schedules')
-      } else {
-        userFilter = { userId: requestUserId }
-      }
-    } else {
-      if (userId) {
-        userFilter = { userId }
-      } else {
-        userFilter = { userId: requestUserId }
-      }
-    }
-
-
-    return await this.prisma.schedule.findMany({
-      where: {
-        ...timeFilter,
-        ...userFilter,
-        ...(roomId && { roomId }),
-        ...(status && { status }),
-        ...(title && { title }),
-        ...(version && { version })
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true }
-        },
-        room: {
-          select: { id: true, name: true, location: true }
-        }
-      },
-      orderBy: { startTime: 'asc' }
-    })
+    return await this.schedulesRepo.findMany({ ...timeFilter, ...rest }, requestUserId)
   }
 
-  async findOne(id: string, userId: string, isAdmin: boolean) {
+  async findAllForAdmin(query: QueryScheduleAdminDto) {
+    const { view, date, ...rest } = query
+
+    let timeFilter: {
+      startTime?: { gte: Date };
+      endTime?: { lte: Date };
+    } = buildPrismaTimeFilter(date, view)
+
+    return await this.schedulesRepo.findMany({ ...timeFilter, ...rest }, rest?.userId)
+  }
+
+  async findOne(id: string, requestUserId: string, isAdmin: boolean) {
     const schedule = await this.schedulesRepo.findById(id);
     if (!schedule) throw new NotFoundException('Schedule not found');
 
     // Users can only view their own
-    if (!isAdmin && schedule.userId !== userId) {
+    if (!isAdmin && schedule.userId !== requestUserId) {
       throw new ForbiddenException('Access denied');
     }
     return schedule;
   }
 
-  async update(id: string, updateScheduleDto: UpdateScheduleDto) {
+  async updateForAdmin(id: string, updateScheduleDto: UpdateScheduleAdminDto, userId: string) {
     const schedule = await this.schedulesRepo.findById(id)
     if (!schedule) {
       throw new NotFoundException('Schedule not found')
     }
 
-    if (schedule.status === StatusEnum.CANCELLED) {
-      throw new ConflictException('Cannot Update a cancelled schedule')
+    if (schedule.status === StatusEnum.CANCELLED || schedule.status === StatusEnum.REJECTED) {
+      throw new ConflictException('Cannot Update a cancelled or rejected schedule')
     }
 
-    const affected = await this.schedulesRepo.updateStatusWithLock(
-      id, updateScheduleDto
-    )
-
-    if (affected == 0) {
-      throw new ConflictException(
-        'Schedule was modified by another admin. Please refresh and try again.',
-      )
+    if (schedule.status === StatusEnum.FINISHED) {
+      throw new ConflictException('Cannot Update a happended schdedule')
     }
 
-    return await this.schedulesRepo.findById(id)
-  }
+    if (updateScheduleDto.status) {
+      if (updateScheduleDto.status !== StatusEnum.APPROVED && updateScheduleDto.status !== StatusEnum.REJECTED) {
+        throw new BadRequestException("Admin can just restore approve or reject a schedule")
+      }
+    }
 
-  async remove(id: string) {
+    // Optimistic locking — version must be provided
+    if (updateScheduleDto.version === undefined || updateScheduleDto.version === null || updateScheduleDto.version !== schedule.version) {
 
-    return await this.prisma.schedule.delete({
-      where: { id }
+      throw new BadRequestException('version is invalid for updates');
+    }
+
+    const newStart = updateScheduleDto.startTime ? new Date(updateScheduleDto.startTime) : schedule.startTime
+    const newEnd = updateScheduleDto.endTime ? new Date(updateScheduleDto.endTime) : schedule.endTime
+    const isValidPeriod = validateTimeRange(newStart, newEnd)
+    if (!isValidPeriod) {
+      throw new BadRequestException("Invalid time range. Please ensure that the time range is valid (end time later than start time and time range is in the future).")
+    }
+    // console.log(`updateScheduleDto: ${JSON.stringify(updateScheduleDto)}, schedule: ${JSON.stringify(schedule)}`);
+    // if (updateScheduleDto.title == 'Updated admin B') {
+    //   console.log(`updateScheduleDto: ${JSON.stringify(updateScheduleDto)}, schedule: ${JSON.stringify(schedule)}`);
+    // }
+
+    const result = await this.txManager.runInTransaction(async (tx) => {
+      const conflict = await this.schedulesRepo.findOverlappingSchedules(
+        updateScheduleDto.roomId ?? schedule.roomId,
+        newStart,
+        newEnd,
+        id,   // exclude self
+        tx
+      );
+      if (conflict) {
+        throw new ConflictException(
+          `Room is already booked from ${conflict.startTime.toISOString()} to ${conflict.endTime.toISOString()}`,
+        );
+      }
+
+      const affected = await this.schedulesRepo.updateForAdminWithLock(id, updateScheduleDto, tx);
+
+      if (affected === 0) {
+        throw new ConflictException(
+          'Schedule was modified by another user while you were editing it. Please refresh and try again.',
+        );
+      }
+
+      const payload: CreateBroadcastDto = {
+        userIds: [schedule.userId, userId],
+        title: 'Existed schedule updated',
+        message: `The booking "${schedule.id}" has been updated by admin ${userId}`,
+        type: NotifEnum.SCHEDULE_UPDATTED,
+      }
+
+      await this.notifRepo.createForUsers(payload, tx)
+
+      return { payload, schedule: await this.schedulesRepo.findById(id, tx) }
     })
+
+    await this.gateway.notifyUsers([schedule.userId, userId], result.payload)
+    return result.schedule
   }
 
-  async cancel(id: string) {
-
+  async updateForUser(
+    id: string,
+    updateScheduleDto: UpdateScheduleUserDto,
+    userId: string
+  ) {
     const schedule = await this.schedulesRepo.findById(id);
-    if (!schedule) throw new NotFoundException("Schedule not found")
+    if (!schedule) throw new NotFoundException('Schedule not found');
 
-    if (schedule.status === StatusEnum.CANCELLED) {
-      throw new ConflictException("Schedule is already cancelled")
+    // Users can only update their own schedules
+    if (schedule.userId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
-    return await this.schedulesRepo.cancel(id)
+    if (schedule.status === StatusEnum.CANCELLED) {
+      throw new ConflictException('Schedule is already cancelled');
+    }
+
+    // Users can only set status to CANCELLED — no other status allowed
+    if (updateScheduleDto.status && updateScheduleDto.status !== StatusEnum.CANCELLED) {
+      throw new ForbiddenException(
+        'You can only cancel your own schedule. Contact an admin for other status changes.',
+      );
+    }
+
+    if (updateScheduleDto.version === undefined || updateScheduleDto.version === null || updateScheduleDto.version !== schedule.version) {
+      throw new BadRequestException('version is invalid for updates');
+    }
+    const result = await this.txManager.runInTransaction(async (tx) => {
+      const affected = await this.schedulesRepo.updateForUserWithLock(id, updateScheduleDto, tx);
+      if (affected === 0) {
+        throw new ConflictException(
+          'Schedule was modified by another user while you were editing it. Please refresh and try again.',
+        );
+      }
+      const payload: CreateBroadcastDto = {
+        userIds: [schedule.userId],
+        title: 'Existed schedule updated',
+        message: `Your booking "${schedule.id}" has been updated.`,
+        type: NotifEnum.SCHEDULE_UPDATTED,
+      }
+
+      await this.notifRepo.createForUsers(payload, tx)
+      return { payload, schedule: await this.schedulesRepo.findById(id, tx) }
+
+
+    })
+    await this.gateway.notifyUser(schedule.userId, result.payload)
+    return result.schedule
+
   }
+
+
+  async delete(id: string, userId: string) {
+    const schedule = await this.schedulesRepo.findById(id)
+    if (!schedule) {
+      throw new NotFoundException("This schedule does not exist")
+    }
+
+    if (schedule.status !== StatusEnum.CANCELLED) {
+      throw new ConflictException('Only cancelled schedules can be deleted');
+    }
+
+    const result = await this.txManager.runInTransaction(async (tx) => {
+      const deletedSchedule = await this.schedulesRepo.delete(id, tx)
+
+      const payload: CreateBroadcastDto = {
+        userIds: [schedule.userId, userId],
+        title: 'Schedule deleted',
+        message: `Your booking "${schedule.id}" has been deleted permanently.`,
+        type: NotifEnum.SCHEDULE_DELETED,
+      }
+
+      await this.notifRepo.createForUsers(payload, tx)
+
+      return { payload, deletedSchedule }
+    })
+
+    await this.gateway.notifyUsers([schedule.userId, userId], result.payload)
+    return result.deletedSchedule
+  }
+
+
+
 
 }

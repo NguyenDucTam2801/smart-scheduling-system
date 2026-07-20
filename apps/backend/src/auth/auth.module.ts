@@ -8,11 +8,12 @@ import { PassportModule } from '@nestjs/passport';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { AuthRepository } from './auth.repository';
 
 @Module({
   imports: [JwtModule.register({}), PassportModule.register({ defaultStrategy: 'jwt' }), PrismaModule],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenStrategy, RefreshTokenStrategy, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, AccessTokenStrategy, RefreshTokenStrategy, JwtAuthGuard, RolesGuard, AuthRepository],
   exports: [JwtAuthGuard, RolesGuard]
 })
 export class AuthModule { }

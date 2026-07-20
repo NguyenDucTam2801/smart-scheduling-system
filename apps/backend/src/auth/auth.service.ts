@@ -1,101 +1,116 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+// src/auth/auth.service.ts
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { LoginDto, PromoteDto, RegisterDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '@prisma/client';
+import { AuthRepository } from './auth.repository';
 
 @Injectable()
 export class AuthService {
     constructor(
-        private prisma: PrismaService,
-        private jwtService: JwtService
+        private readonly usersRepo: AuthRepository, // 🚀 Repo phục vụ dữ liệu
+        private readonly jwtService: JwtService
     ) { }
-    // register, login, refresh tokens, get tokens, update refresh token
 
-    //register a new user, hash the password, save to db, return access and refresh tokens
-    async register(registerDto: RegisterDto): Promise<{ accessToken: string, refreshToken: string }> {
-        const { email, password, name } = registerDto;
-        const existingUser = await this.prisma.user.findUnique({ where: { email: email } })
-        if (existingUser) throw new BadRequestException('Email already registered')
+    // ── REGISTER ───────────────────────────────────────────────────────
+    async register(registerDto: RegisterDto): Promise<void> {
+        const { email, password } = registerDto;
 
-        const hashedPassword = await bcrypt.hash(password, 12)
-        const user = await this.prisma.user.create({
-            data: {
-                email: email,
-                name: name,
-                passwordHash: hashedPassword,
-                role: RoleEnum.USER
-            }
-        })
+        const user = await this.usersRepo.findByEmail(email);
+        if (user) throw new BadRequestException('Email already registered');
 
-        const tokens = await this.getTokens(user.id, user.email, user.role)
-        await this.updateRefreshToken(user.id, tokens.refreshToken)
-        return tokens
+        const saltRounds = process.env.NODE_ENV === 'test' ? 1 : 12;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        await this.usersRepo.createUser(registerDto, hashedPassword);
 
+        // const tokens = await this.getTokens(user.id, user.email, user.role);
+        // await this.saveRefreshToken(user.id, tokens.refreshToken);
+
+        // return tokens;
     }
 
-    //login user, verify password, return access and refresh tokens
+    // ── LOGIN ──────────────────────────────────────────────────────────
     async login(loginDto: LoginDto): Promise<{ accessToken: string, refreshToken: string }> {
-        const { email, password } = loginDto
-        const existingUser = await this.prisma.user.findUnique({ where: { email: email } })
-        if (!existingUser) throw new UnauthorizedException("Invalid Credentials")
+        const { email, password } = loginDto;
 
-        const passwordMatches = await bcrypt.compare(password, existingUser.passwordHash)
-        if (!passwordMatches) throw new UnauthorizedException("Invalid Credentials")
+        const user = await this.usersRepo.findByEmail(email);
+        if (!user) throw new UnauthorizedException("Invalid Credentials");
 
-        const tokens = await this.getTokens(existingUser.id, existingUser.email, existingUser.role)
-        await this.updateRefreshToken(existingUser.id, tokens.refreshToken)
-        return tokens
+        const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+        if (!passwordMatches) throw new UnauthorizedException("Invalid Credentials");
+
+        const tokens = await this.getTokens(user.id, user.email, user.role);
+        // await this.saveRefreshToken(user.id, tokens.refreshToken);
+
+        return tokens;
     }
 
-    // refresh tokens, verify user exists, generate new tokens, update refresh token in db, return new tokens
+    // ── REFRESH TOKENS ─────────────────────────────────────────────────
     async refreshTokens(userId: string, refreshToken: string): Promise<{ accessToken: string, refreshToken: string }> {
-        const existingUser = await this.prisma.user.findUnique({ where: { id: userId } })
-        if (!existingUser || !existingUser.refreshTokenHash) throw new UnauthorizedException("Invalid Credentials")
+        const user = await this.usersRepo.findById(userId);
+        if (!user || !user.refreshTokenHash) throw new UnauthorizedException("Invalid Credentials");
 
-        const refreshTokenMatches = await bcrypt.compare(refreshToken, existingUser.refreshTokenHash);
+        const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
         if (!refreshTokenMatches) throw new UnauthorizedException("Invalid Credentials");
 
-        const tokens = await this.getTokens(existingUser.id, existingUser.email, existingUser.role, refreshToken)
-        await this.updateRefreshToken(existingUser.id, tokens.refreshToken)
-        return tokens
+        const tokens = await this.getTokens(user.id, user.email, user.role);
+        // await this.saveRefreshToken(user.id, tokens.refreshToken);
+
+        return tokens;
     }
 
-    // helper function to generate access and refresh tokens
-    private async getTokens(userId: string, email: string, role: RoleEnum, oldRefreshToken?: string): Promise<{ accessToken: string, refreshToken: string }> {
-        const jwtPayload = { sub: userId, email, role }
+    // ── PROMOTE ROLE ───────────────────────────────────────────────────
+    async promote(promoteDto: PromoteDto) {
+        const { userId, targetRole, secretKey } = promoteDto;
 
-        const accessToken = await this.jwtService.signAsync(jwtPayload, {
-            secret: process.env.JWT_ACCESS_SECRET as string,
-            // Just pass the string directly, and use '1h' (not '3600') as the fallback
-            expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '1h') as any
-        } as any);// Ensure this runs in the next tick to avoid blocking
+        const user = await this.usersRepo.findById(userId);
+        if (!user) throw new NotFoundException("User not found");
 
+        if (targetRole === RoleEnum.USER) {
+            throw new BadRequestException('Target role cannot be USER');
+        }
 
-        const refreshToken = oldRefreshToken
-            ? oldRefreshToken
-            : await this.jwtService.signAsync(jwtPayload, {
-                secret: process.env.JWT_REFRESH_SECRET as string,
-                expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '1w') as any
-            });
+        const expectedSecret = targetRole === RoleEnum.SUPERADMIN
+            ? process.env.SUPER_ADMIN_SECRET_KEY
+            : process.env.ADMIN_SECRET_KEY;
 
-        return { accessToken, refreshToken }
+        if (secretKey !== expectedSecret) {
+            throw new UnauthorizedException('Invalid secret key');
+        }
+
+        return this.usersRepo.updateRole(userId, targetRole);
     }
 
-    private async updateRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
+    // ── HELPER FUNCTIONS ───────────────────────────────────────────────
+    private async getTokens(userId: string, email: string, role: RoleEnum): Promise<{ accessToken: string, refreshToken: string }> {
+        const jwtPayload = { sub: userId, email, role };
 
-        await this.prisma.user.update({
-            where: { id: userId },
-            data: { refreshTokenHash: refreshToken ? await bcrypt.hash(refreshToken, 12) : null }
-        })
+        const accessToken = await this.jwtService.signAsync(
+            jwtPayload, {
+                secret: process.env.JWT_ACCESS_SECRET as string,
+                // Just pass the string directly, and use '1h' (not '3600') as the fallback
+                expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '1h') as any
+
+            } as any);// Ensure this runs in the next tick to avoid blocking
+
+        const refreshToken = await this.jwtService.signAsync(jwtPayload, {
+            secret: process.env.JWT_REFRESH_SECRET as string,
+            expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '1w') as any
+        });
+
+        await this.saveRefreshToken(userId, refreshToken);
+        return { accessToken, refreshToken };
     }
 
-    async promoteToAdmin(userId: string, secretKey: string) {
-        if (secretKey !== process.env.ADMIN_SECRET_KEY) throw new UnauthorizedException('Invalid secret key');
-        await this.prisma.user.update({
-            where: { id: userId },
-            data: { role: RoleEnum.ADMIN }
-        })
+    async logOut(userId: string): Promise<void> {
+        await this.saveRefreshToken(userId, null);
     }
+
+    private async saveRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
+        const tokenHash = refreshToken ? await bcrypt.hash(refreshToken, 12) : null;
+        await this.usersRepo.updateRefreshTokenHash(userId, tokenHash);
+    }
+
+
 }

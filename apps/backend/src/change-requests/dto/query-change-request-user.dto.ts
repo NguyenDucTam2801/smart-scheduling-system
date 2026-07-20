@@ -1,7 +1,7 @@
 import { IsOptional, IsEnum, IsUUID } from 'class-validator';
 import { CrStatusEnum } from '@prisma/client';
 
-export class QueryChangeRequestDto {
+export class QueryChangeRequestUserDto {
     @IsOptional()
     @IsEnum(CrStatusEnum)
     status?: CrStatusEnum;
@@ -9,11 +9,6 @@ export class QueryChangeRequestDto {
     @IsOptional()
     @IsUUID()
     scheduleId?: string;
-
-    @IsOptional()
-    @IsUUID()
-    requesterId?: string;
-
 
     @IsOptional()
     @IsUUID()

@@ -1,22 +1,49 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { NotifEnum } from '@prisma/client';
+import { CreateBroadcastDto } from 'src/notifications/dto/create-broadcast.dto';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
+import { NotificationsRepository } from 'src/notifications/notifications.repository';
+import { TransactionManager } from 'src/transaction-manager/transaction-manager.service';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { QueryRoomDto } from './dto/quey-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { RoomRepository } from './rooms.repository';
-import { QueryRoomDto } from './dto/quey-room.dto';
 
 @Injectable()
 export class RoomsService {
-  constructor(private readonly roomsRepo: RoomRepository) { }
+  constructor(
+    private readonly roomsRepo: RoomRepository,
+    private readonly notifRepo: NotificationsRepository,
+    private readonly gateway: NotificationsGateway,
+    private readonly txManager: TransactionManager
 
-  async create(createRoomDto: CreateRoomDto) {
+  ) { }
+
+  async create(createRoomDto: CreateRoomDto, userId: string) {
     const room = await this.roomsRepo.findByName(createRoomDto.name)
     if (room.length) throw new ConflictException("Room already exists. Please choose a different name.")
-    return this.roomsRepo.create(createRoomDto)
+    const result = await this.txManager.runInTransaction(async (tx) => {
+      const newRoom = await this.roomsRepo.create(createRoomDto, tx)
+
+      const payload: CreateBroadcastDto = {
+        userIds: [userId],
+        title: 'Existed schedule updated',
+        message: `Your booking "${newRoom.id}" has been updated by admin ${userId}`,
+        type: NotifEnum.ROOM_CREATED,
+      }
+
+      await this.notifRepo.createForUsers(payload, tx);
+
+      return { newRoom, payload }
+
+    })
+    this.gateway.notifyAll(result.payload);
+    return result.newRoom
   }
 
   async findAll(dto: QueryRoomDto) {
     const rooms = await this.roomsRepo.findMany(dto)
-    if (!rooms.length) throw new NotFoundException('Rooms not found')
+    if (!rooms.length && Object.keys(dto).length !== 0) throw new NotFoundException('Rooms not found')
     return rooms
   }
 
@@ -26,31 +53,35 @@ export class RoomsService {
     return room
   }
 
-  async update(id: string, updateRoomDto: UpdateRoomDto) {
+  async update(id: string, updateRoomDto: UpdateRoomDto, userId: string) {
     const room = await this.roomsRepo.findById(id);
     if (!room) throw new NotFoundException(`Room not found`);
     // add notif service to notice all people about change the name
-    return this.roomsRepo.update(id, updateRoomDto);
+    if (!updateRoomDto.isActive) {
+      const hasActive = await this.roomsRepo.hasActiveSchedules(id);
+      if (hasActive) {
+        throw new ConflictException(
+          `Cannot deactivate a room with existing schedules.`,
+        );
+      }
+    }
+    const result = await this.txManager.runInTransaction(async (tx) => {
+
+      const updatedRoom = await this.roomsRepo.update(id, updateRoomDto, tx);
+
+      let payload: CreateBroadcastDto = {
+        title: 'Room updated',
+        message: `The room "${updatedRoom.name}" has been updated by admin ${userId}.`,
+        type: NotifEnum.ROOM_UPDATED,
+      };
+
+      await this.notifRepo.createForAllUsers(payload, tx);
+      return { updatedRoom, payload }
+    })
+
+    await this.gateway.notifyAll(result.payload);
+    return result.updatedRoom;
   }
-
-  // async softDelete(id: string) {
-  //   const room = await this.roomsRepo.findById(id);
-  //   if (!room) throw new NotFoundException(`Room not found`);
-
-  //   if (!room.isActive) {
-  //     throw new BadRequestException(`Room is already deactivated`);
-  //   }
-
-  //   // Warn if room has active bookings but still allow deactivation
-  //   const hasActive = await this.roomsRepo.hasActiveSchedules(id);
-  //   if (hasActive) {
-  //     throw new ConflictException(
-  //       `Room still has active or pending schedules. Cancel them before deactivating.`,
-  //     );
-  //   }
-
-  //   return this.roomsRepo.softDelete(id);
-  // }
 
   async hardDelete(id: string) {
     const room = await this.roomsRepo.findById(id);
@@ -71,6 +102,21 @@ export class RoomsService {
       );
     }
 
-    return this.roomsRepo.hardDelete(id);
+    const result = await this.txManager.runInTransaction(async (tx) => {
+      const deletedRoom = await this.roomsRepo.remove(id, tx);
+
+      const payload: CreateBroadcastDto = {
+        title: 'Room deleted',
+        message: `The room "${deletedRoom.name}" has been permanently deleted.`,
+        type: NotifEnum.ROOM_DELETED,
+      };
+
+      await this.notifRepo.createForAllUsers(payload, tx);
+      return { payload, deletedRoom }
+    })
+
+    this.gateway.notifyAll(result.payload)
+
+    return result.deletedRoom;
   }
 }

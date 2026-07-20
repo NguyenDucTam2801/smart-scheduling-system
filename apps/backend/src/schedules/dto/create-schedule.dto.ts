@@ -1,13 +1,14 @@
-import { IsDateString, IsNotEmpty, IsString, MinLength } from "class-validator"
+import { IsDateString, IsNotEmpty, IsString, IsUUID, MaxLength, MinLength } from "class-validator"
 
 export class CreateScheduleDto {
     @IsNotEmpty()
     @IsString()
     @MinLength(2)
+    @MaxLength(255)
     title!: string
 
     @IsNotEmpty()
-    @IsString()
+    @IsUUID()
     roomId!: string
 
     @IsNotEmpty()

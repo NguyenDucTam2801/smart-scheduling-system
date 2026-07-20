@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { CalendarView } from 'src/schedules/dto/query-schedule.dto';
+import { CalendarView } from 'src/schedules/dto/query-schedule-user.dto';
 
 export interface PrismaTimeFilter {
     startTime?: { gte: Date };
@@ -30,4 +30,17 @@ export function buildPrismaTimeFilter(
         startTime: { gte: range.start.toDate() },
         endTime: { lte: range.end.toDate() },
     };
+}
+
+export function validateTimeRange(startDate: Date | string, endDate: Date | string): boolean {
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+
+    if (!start.isValid() || !end.isValid()) return false;
+    if (end.isBefore(start)) return false;
+
+    const now = dayjs();
+    if (start.isBefore(now) || end.isBefore(now)) return false;
+
+    return true;
 }

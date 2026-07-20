@@ -3,6 +3,7 @@ import { PrismaService } from "src/prisma/prisma.service";
 import { QueryRoomDto } from "./dto/quey-room.dto";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
+import { StatusEnum } from "@prisma/client";
 
 @Injectable()
 export class RoomRepository {
@@ -61,10 +62,12 @@ export class RoomRepository {
     }
 
 
-    async create(dto: CreateRoomDto) {
+    async create(dto: CreateRoomDto, tx?: PrismaService) {
         const { name, capacity, location } = dto
         // add notification table to all users about new room
-        return this.prisma.room.create({
+        const prismaClient = tx || this.prisma;
+
+        return prismaClient.room.create({
             data: {
                 name,
                 capacity,
@@ -72,9 +75,12 @@ export class RoomRepository {
             }
         })
     }
-    async update(id: string, dto: UpdateRoomDto) {
+
+    async update(id: string, dto: UpdateRoomDto, tx?: PrismaService) {
         const { name, capacity, location, isActive } = dto
-        return this.prisma.room.update({
+        const prismaClient = tx || this.prisma;
+
+        return prismaClient.room.update({
             where: { id },
             data: {
                 ...(name && { name }),
@@ -85,17 +91,20 @@ export class RoomRepository {
             }
         })
     }
-    async softDelete(id: string) {
-        return this.prisma.room.update({
-            where: { id },
-            data: { isActive: false },
-        });
-    }
 
-    async hardDelete(id: string) {
+    // async softDelete(id: string) {
+    //     return this.prisma.room.update({
+    //         where: { id },
+    //         data: { isActive: false },
+    //     });
+    // }
+
+    async remove(id: string, tx?: PrismaService) {
         // add notification table to all users about deleted room
 
-        return this.prisma.room.delete({
+        const prismaClient = tx || this.prisma;
+
+        return prismaClient.room.delete({
             where: { id }
         })
     }
@@ -105,7 +114,7 @@ export class RoomRepository {
         const count = await this.prisma.schedule.count({
             where: {
                 roomId: id,
-                status: { in: ['PENDING', 'APPROVED'] },
+                status: { in: [StatusEnum.APPROVED] },
             },
         });
         return count > 0;
