@@ -1,0 +1,20 @@
+{
+    "Login": {
+        "Title": "Đăng nhập vào tài khoản",
+        "Subtitle": "Vui lòng nhập thông tin đăng nhập để tiếp tục.",
+        "Email": "Email",
+        "EmailPlaceholder": "ban@example.com",
+        "Password": "Mật khẩu",
+        "PasswordPlaceholder": "Nhập mật khẩu của bạn",
+        "Submit": "Đăng nhập",
+        "Loading": "Đang đăng nhập...",
+        "Errors": {
+            "EmailRequired": "Email là bắt buộc",
+            "EmailInvalid": "Vui lòng nhập email hợp lệ",
+            "PasswordRequired": "Mật khẩu là bắt buộc",
+            "PasswordMin": "Mật khẩu phải có ít nhất 6 ký tự",
+            "InvalidCredentials": "Email hoặc mật khẩu không đúng",
+            "Generic": "Đã có lỗi xảy ra. Vui lòng thử lại."
+        }
+    }
+}

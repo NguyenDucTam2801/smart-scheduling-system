@@ -1,0 +1,20 @@
+{
+    "Login": {
+        "Title": "Login to your account",
+        "Subtitle": "Please enter your credentials to continue.",
+        "Email": "Email",
+        "EmailPlaceholder": "you@example.com",
+        "Password": "Password",
+        "PasswordPlaceholder": "Enter your password",
+        "Submit": "Login",
+        "Loading": "Logging in...",
+        "Errors": {
+            "EmailRequired": "Email is required",
+            "EmailInvalid": "Please enter a valid email",
+            "PasswordRequired": "Password is required",
+            "PasswordMin": "Password must be at least 6 characters",
+            "InvalidCredentials": "Invalid email or password",
+            "Generic": "Something went wrong. Please try again."
+        }
+    }
+}
