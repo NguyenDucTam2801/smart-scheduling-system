@@ -1,4 +1,9 @@
 {
+    "Index": {
+        "Title": "Welcome to the Smart Scheduling System",
+        "Subtitle": "Manage your schedules efficiently and effectively.",
+        "GetStarted": "Get Started"
+    },
     "Login": {
         "Title": "Login to your account",
         "Subtitle": "Please enter your credentials to continue.",

@@ -78,7 +78,9 @@ export default async function Page({ params }: { params: { lang: string } }) {
 
   return (
     <div>
-      <h1>{dict.products.cart}</h1>
+      <h1>{dict.Index.Title}</h1>
+      <p>{dict.Index.Subtitle}</p>
+      <button>{dict.Index.GetStarted}</button>
     </div>
   );
 }
